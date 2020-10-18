@@ -43,9 +43,13 @@ int main(int argc, char** argv) {
 	}
 	else cout << "Unable to open file" << endl;
 
-	cout << "Comparing " << seq1 << " and " << seq2 << endl << endl;
+	// cout << "Comparing " << seq1 << " and " << seq2 << endl << endl; // DEBUGGING
 
+	auto t1 = chrono::high_resolution_clock::now();
 	auto matrix = scoreMatrix(seq1, seq2);
+	auto t2 = chrono::high_resolution_clock::now();
+	auto duration = chrono::duration_cast<chrono::microseconds>( t2 - t1 ).count();
+	cout << "Results computed in " << duration << " micro seconds" << endl;
 
 	ofstream outfile;
 	// Output the optimal score
@@ -65,19 +69,21 @@ int main(int argc, char** argv) {
 	outfile.open("assignment1.o2");
 	if (outfile.is_open())
 	{
-		cout << "Score Matrix:" << endl;
+		// cout << "Score Matrix:" << endl; // DEBUGGING
 		for (auto row : matrix) {
 			for (auto num : row) {
 				outfile << num << ' ';
-				cout << right << setw(4) << num << ' ';
+				// cout << right << setw(4) << num << ' '; // DEBUGGING
 			}
 			outfile << endl;
-			cout << endl;
+			// cout << endl; // DEBUGGING
 		}
 		outfile.close();
 	}
 	else cout << "Unable to open file.\n";
 
+	cout << "Press enter to end program" << endl;
+	getline(cin, inLine);	
 	return 0;
 }
 
