@@ -3,7 +3,7 @@ Assignment 1 for Christina Boucher's Bioinformatics class at the University of F
 
 Run the program to generate solutions with:
 
-```g++ -std=c++11 solution.cpp && ./a.out```
+```g++ -std=c++11 holguin-itkin.cpp && ./a.out```
 
 Generate Random Sequence of size n with:
 
