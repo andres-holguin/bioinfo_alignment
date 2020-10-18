@@ -131,3 +131,4 @@ dmypy.json
 # C++ files
 *.o*
 *.out
+.vscode/settings.json
