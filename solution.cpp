@@ -7,44 +7,220 @@
 #include <iomanip>
 using namespace std;
 
-vector<vector<int>> scoreMatrix(string seq1, string seq2);
-void printIfMultiple(bool ifMulti);
-void printOptAlignment(vector<vector<int>>& matrix, vector<vector<int*>>& path, string seq1, string seq2);
-//EC: Write out all possible optimal alignments
-
 /*************SCORING FUNCTION:**********************/
 /*2 for match, -1 for mismatch, -2 match against gap*/
 /****************************************************/
-const int MATCH = 2;
-const int MISMATCH = -1;
-const int GAP = -2;
+struct Scores {
+	static int const 
+		MATCH = 2,
+		MISMATCH = -1,
+		GAP = -2;
+};
+enum Direction {	UP, DIAG, LEFT, NONE };
+struct AlignmentScore {int val; Direction source = NONE;};
+class AlignmentScoreMatrix {
+	string SEQ1, SEQ2;
+	u_int M, N;
+	vector< vector<AlignmentScore> > matrix;
+public:
+	AlignmentScoreMatrix(string const &SEQ1, string const &SEQ2) {
+		this->SEQ1 = SEQ1, this->SEQ2 = SEQ2;
+		M = SEQ1.size()+1, N = SEQ2.size()+1;
+		matrix = vector< vector<AlignmentScore> >(M, vector<AlignmentScore>(N)); 
+	}
+
+	AlignmentScore* at(u_int i, u_int j) {
+		return &matrix[i][j];
+	}
+
+	u_int const getNumRows() {
+		return M;
+	}
+	u_int const getNumCols() {
+		return N;
+	}
+	string const getSEQ1() {
+		return SEQ1;
+	}
+	string const getSEQ2() {
+		return SEQ2;
+	}
+};
+
+vector<string> extractSeq(string const &fileName);
+AlignmentScoreMatrix getScores(string const &SEQ1, string const &SEQ2);
+void solveFromSubProblem(AlignmentScoreMatrix &matrix, u_int i, u_int j, Direction dir, int &maxScore);
+
+void writeScoreMatrix(AlignmentScoreMatrix &matrix, string const &fileName);
+
+// vector< vector<int> > scoreMatrix(string seq1, string seq2);
+// void printIfMultiple(bool ifMulti);
+// void printOptAlignment(vector<vector<int>>& matrix, vector<vector<int*>>& path, string seq1, string seq2);
+// EC: Write out all possible optimal alignments
+
 
 int main(int argc, char** argv) {
-	string inLine;
-	string seq1, seq2;
-	bool firstSeq = true;
-
-	//To read in argument, if possible: inLine = argv[1];
-
-	cout << "Enter File Name" << endl;
-	getline(cin, inLine); // Get file name
-	// Open file
-	ifstream infile(inLine);
-	if (infile.is_open())
-	{
-		while (getline(infile, inLine))
-		{
-			if (inLine.size() && inLine.at(0) == '>') {
-				getline(infile, (firstSeq ? seq1 : seq2));
-				firstSeq = !firstSeq;
-			}
-		}
-		infile.close();
+	/* Determine file to open */
+	string fileName;
+	if (argc > 1) { // File name is provided as argument
+		fileName = argv[1];
+	} else { // Prompt for the file's name
+		cout << "Enter File Name" << endl;
+		getline(cin, fileName);
 	}
-	else cout << "Unable to open file" << endl;
 
-	cout << "Comparing " << seq1 << " and " << seq2 << endl << endl;
+	/* Open the file and extract sequences */
+	cout << "Extracting sequences from " << fileName << endl;
+	vector<string> sequences = extractSeq(fileName);
+	if ( !sequences.size() ) return -1; // No Sequences were extracted;
+	// Assign sequences
+	const string SEQ1 = sequences[0], SEQ2 = sequences[1];
 
+	/* Get score matrix */
+	cout << "\nComparing two sequences:" << endl;
+	cout << SEQ1 << endl;
+	cout << "and" << endl;
+	cout << SEQ2 << endl;
+	cout << "With scores: " << endl;
+	cout << "\tMatch: " << Scores::MATCH << endl;
+	cout << "\tMismatch: " << Scores::MISMATCH << endl;
+	cout << "\tGap: " << Scores::GAP << endl;
+\
+	AlignmentScoreMatrix matrix = getScores(SEQ1, SEQ2);
+
+	/* Output results */
+	// (a) Write the optimal score
+
+	// (b) Write the dynamic programming matrix
+	writeScoreMatrix(matrix, "assignment1.o2");
+
+}
+
+vector<string> extractSeq(const string &fileName) {
+	ifstream inFile;
+	string inLine;
+	vector<string> sequences;
+
+	inFile.open(fileName);
+	if (!inFile.is_open()) cout << "Unable to open file: " << fileName << endl;
+
+	while( getline(inFile, inLine) ) {
+		if ( inLine.size() && inLine.at(0) == '>' ) {
+			getline(inFile, inLine);
+			sequences.push_back(inLine);
+		}
+	}
+	return sequences;
+}
+
+/** 
+ * Builds the solution matrix of the form:
+ * x _ S E Q 2
+ * _ 0 0 0 0 0
+ * S 0 0 0 0 0
+ * E 0 0 0 0 0
+ * Q 0 0 0 0 0
+ * 1 0 0 0 0 0
+ */
+AlignmentScoreMatrix getScores(string const &SEQ1, string const &SEQ2) {
+	// Init constants to sequence sizes
+	u_int const M = SEQ1.size()+1, N = SEQ2.size()+1;
+	// Create matrix of size ROW x COL = M X N
+	AlignmentScoreMatrix matrix(SEQ1, SEQ2);
+
+	auto isWithinMatrix = [&](u_int const &i, u_int const &j) -> bool { 
+		return (i <= M && j <= N); // Since unsigned, only need to check if greater than.
+	};
+	
+	for (u_int i = 0; i < M; i++) {
+		for (u_int j = 0; j < N; j++) {
+			int maxScore = INT_MIN;
+			u_int seq1_index, seq2_index;
+
+			// Recurse from top-left (DIAG) for MATCH or MISMATCH
+			solveFromSubProblem(matrix, i, j, DIAG, maxScore);
+
+			// Recurse from above (UP) for GAP on SEQ2
+			solveFromSubProblem(matrix, i, j, UP, maxScore);
+
+			// Recurse from LEFT for GAP or SEQ1
+			solveFromSubProblem(matrix, i, j, LEFT, maxScore);
+		}
+	}
+
+	return matrix;
+}
+
+void solveFromSubProblem(AlignmentScoreMatrix &matrix, u_int i, u_int j, Direction dir, int &maxScore) {
+	u_int const M = matrix.getNumRows(), N = matrix.getNumCols();
+	int newScore, scoreMod;
+	u_int seq1_index, seq2_index;
+	// Lambda to determine if indices within matrix
+	auto isWithinMatrix = [&](u_int const &i, u_int const &j) -> bool { 
+		return (i <= M && j <= N); // Since unsigned, only need to check if greater than.
+	};
+
+	switch (dir) {
+	case DIAG: // Recurse from top-left for MATCH or MISMATCH
+		seq1_index = i-1, seq2_index = j-1;
+		scoreMod = isWithinMatrix(seq1_index, seq2_index) && matrix.getSEQ1()[seq1_index] == matrix.getSEQ2()[seq2_index] ? 
+								Scores::MATCH :
+								Scores::MISMATCH ;
+		break;
+	case UP: // Recurse from above for GAP on SEQ2
+		seq1_index = i, seq2_index = j-1;	
+		scoreMod = Scores::GAP;
+		break;
+	case LEFT: // Recurse from LEFT for GAP on SEQ1
+		seq1_index = i-1, seq2_index = j;
+		scoreMod = Scores::GAP;		
+		break;
+	default:
+		return;
+	}
+
+	// Set as new max
+	if ( isWithinMatrix(seq1_index, seq2_index) ) {
+		newScore = matrix.at(seq1_index, seq2_index)->val + scoreMod;
+		if (newScore > maxScore) {
+			matrix.at(i,j)->val = maxScore = newScore;
+			matrix.at(i,j)->source = dir;
+		}
+	}	
+}
+
+char interpretDirection(Direction dir) {
+	switch (dir) {
+		case UP:
+			return '^';
+		case DIAG:
+			return '\\';
+		case LEFT:
+			return '<';
+		default:
+			return '.';
+	}
+}
+
+void writeScoreMatrix(AlignmentScoreMatrix &matrix, string const &fileName) {
+	ofstream outfile(fileName);
+	if (outfile.is_open())
+	{
+		cout << "\nScore Matrix:" << endl;
+		for (u_int i=0; i < matrix.getNumRows(); i++) {
+			for (u_int j=0; j < matrix.getNumCols(); j++) {
+				outfile << matrix.at(i,j)->val << ' ';
+				cout << right << setw(4) << matrix.at(i,j)->val << interpretDirection(matrix.at(i,j)->source) << ' ';
+			}
+			outfile << endl;
+			cout << endl;
+		}
+		outfile.close();
+	}
+	else cout << "Unable to output the score matrix to " << fileName << endl;
+}
+
+/*
 	auto matrix = scoreMatrix(seq1, seq2);
 
 	ofstream outfile;
@@ -210,3 +386,4 @@ void printIfMultiple(bool ifMulti) {
 	}
 	else cout << "Unable to open file.\n";
 }
+*/

@@ -129,5 +129,7 @@ dmypy.json
 .pyre/
 
 # C++ files
-*.o*
+assignment1.*
 *.out
+assignment1.o2
+.vscode/settings.json
